@@ -1,0 +1,38 @@
+一：项目Owner：申请github账号，创建Respositories
+二：项目协作者(你)：申请github账号，生成项目协作者机器的ssh公钥(在项目协作者本机生成项目Owner的ssh公钥)并发送给项目Owner
+三：项目Owner：项目协作者机器中的项目Owner公钥，加入到项目Owner的ssh公钥池
+四：项目Owner：把协作者的用户名加入到项目的Collaborators中
+五：项目协作者：在notification中同意邀请
+六：项目协作者：安装Github Gui Client，Clone代码，修改代码，commit代码, sync代码成功
+===================================================================================================
+一：项目Owner：申请github账号，创建Respositories
+============
+二：项目协作者(你)：申请github账号，生成项目协作者机器的ssh公钥(在项目协作者本机生成项目Owner的ssh公钥)并发送给项目Owner
+2.1 申请github账号
+2.2 生成项目协作者机器的ssh公钥(在项目协作者本机生成项目Owner的ssh公钥)并发送给项目Owner
+2.2.1.生成ssh key
+ssh-keygen -t rsa -C xxxxx@gmail.com（项目Owner的github的注册邮箱）（默认回车不设置密码）
+会生成一个id_rsa.pub的文件，把id_rsa.pub的文件内容发送给项目Owner
+============
+三：项目Owner：项目协作者机器中的项目Owner公钥，加入到项目Owner的ssh公钥池
+3.1 在浏览器中打开github，登录项目Owner的账号，your profile -》 edit profile -》 ssh and gpg key -》 new ssh key
+填写id_rsa.pub文件的内容
+============
+四：项目Owner：把协作者的用户名加入到项目的Collaborators中
+4.1 你的仓库-->setting-->Collaborators,然后输入你的协作者的用户名
+============
+五：项目协作者：在notification中同意邀请
+============
+六：项目协作者：安装Github Gui Client，Clone代码，修改代码，checkin代码, sync代码成功
+6.1 安装Github Gui Client
+6.1.1 下载地址: https://git-scm.com/downloads/ https://desktop.github.com
+6.1.2 安装后可以通过Git --version查看是否安装成功，后台程序无图形界面
+6.1.3 安装完成后，登陆自己的github的账号
+6.2 Clone代码
+6.3 修改代码
+6.4.commit代码, sync代码成功
+============
+参考：
+原始文档：https://help.github.com/articles/generating-ssh-keys
+中文博客：http://blog.csdn.NET/qq_20044689/article/details/51659665
+中文博客：http://blog.csdn.Net/qq_20044689/article/details/51660203
