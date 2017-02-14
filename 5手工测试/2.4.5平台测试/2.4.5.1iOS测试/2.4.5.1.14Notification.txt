@@ -1,0 +1,156 @@
+Apple的push分为Local Notification, Remote Notification, VoIP Notification, App自己还可以通过长连接实现App Notification
+=App Notification=================================
+通过我们自己的服务器直接推送给APP，没有走苹果服务器；这是一种经过优化的推送，比较快速、及时。
+业务逻辑：
+   服务器只发消息，我们收到消息后就调用系统的接口展示App Notification，客户端会ackPush的（即告诉服务器不要发APNs），只要接收到App Notification就ackPush，这样服务器就不发出APNs push的指令给苹果服务器了。
+   使用情况：网络连接正常，App进程活着（inactive, background），可以直接收到App Notification；activate状态直接收到消息，不展示push
+=Local Notification=================================
+基于时间行为的一种通知形式，例如闹钟定时、待办事项提醒，又或者一个应用在一段时候后不使用通常会提示用户使用此应用等都是本地通知。
+•在使用通知之前必须注册通知类型，如果用户不允许应用程序发送通知，则以后就无法发送通知，除非用户手动到iOS设置中打开通知。
+•在本机上schedule一个notification，并带有一些信息，当时间到了之后，iphone系统就发送一个notification，系统根据注册在本机上的notification来判断通知相应的app
+•本地通知是有操作系统统一调度的，只有在应用退出到后台或者关闭才能收到通知
+•通知的声音是由iOS系统播放的，格式必须是Linear PCM、MA4（IMA/ADPCM）、µLaw、aLaw中的一种，并且播放时间必须在30s内，否则将被系统声音替换，同时自定义声音文件必须放到main boundle中。
+•本地通知的数量是有限制的，最近的本地通知最多只能有64个，超过这个数量将被系统忽略。
+=Remote Notification=================================
+1.App 注册
+  a.注册前两个前提条件：
+    a.1开发配置文件（provisioning profile，.mobileprovision后缀文件)的App ID不能使用通配ID，使用指定APP ID并且生成配置文件中选择Push Notifications服务
+    a.2应用程序的Bundle Identifier和生成配置文件使用的APP ID一致
+  b.UIApplication
+    registerUserNotificationSettings方法注册，iOS8中通知注册的方法发生了改变
+
+2.Device Token注册 
+2.1.Device Token: iOS system—>iOS App
+  a.在UIApplication的
+    didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken代理方法中获取令牌，此方法发生在注册之后
+  b.如果无法正确获得device token可以在UIApplication的
+    didFailToRegisterForRemoteNotificationsWithError:(NSError *)error代理方法中查看详细错误信息，此方法发生在获取device token失败之后。
+  c.必须真机调试，模拟器无法获取device token。
+2.2.Device Token: Ios App—>服务器端
+  a.device token生成：生成算法只有Apple掌握，为了确保算法发生变化后仍然能够正常接收服务器端发送的通知，每次应用程序启动都重新获得device token
+  b.device token发送给服务器端（device token变化时，才发送新老device token，服务端删除老的device token，保存新的device token)
+  c.在用户的iphone系统中register一个notification(App kill后或者卸载后？此Notification仍旧保留在系统中)
+2.3.Device Token:服务器端—>APNs
+
+3.Notification发送
+3.1 Notification：iOS App—>服务器端
+    发送时指定device token和消息内容
+3.2 Notification：服务器端—>APNs
+    服务器端把要发送的消息和设备令牌（device token）发送给苹果的消息推送服务器APNs
+3.3 Notification：APNs—>iOS App
+    APNs根据设备令牌在已注册的设备（iPhone、iPad、iTouch、mac等）查找对应的设备，将消息发送给相应的设备
+    客户端设备接将接收到的消息, 根据本机系统上注册的Notification找到相应的app，通知此App, App根据用户设置弹出通知消息
+    如果用户卸载App，此时推送消息失败，APNs会将这个错误消息通知服务器端以避免资源浪费（服务器端此时可以根据错误删除已经存储的device token，下次不再发送）。
+    如果我们的应用程序给系统发送的本地通知是周期性的，那么即使把程序删了重装，之前的本地通知在重装时依然存在（没有从系统中移除）    
+
+4. troubleshooting
+iOS在系统级别有一个推送服务程序使用如下端口。使用这个端口的协议源于Jabber后来发展为XMPP
+TCP 端口 5223：用于与 Apple 推送通知服务 (APNs) 通信
+TCP 端口 2195：用于向 APNs 发送通知
+TCP 端口 2196：用于 APNs 反馈服务
+TCP 端口 443：设备无法在端口 5223 上与 APNs 通信时，仅在 Wi-Fi 上备用
+APNs 服务器使用负载平衡，因此您的设备无法始终连接到用于通知的同一公共 IP 地址。最好允许在整个 17.0.0.0/8 地址块（已分配给 Apple）范围上访问这些端口。
+=VoIP Notification=================================
+机制类同Remote Notification
+默认不会弹出通知, 使app执行指定的代码
+
+==================================
+•iOS 3 - RemoteNotification
+UIApplication的
+     registerForRemoteNotificationTypes与
+UIApplicationDelegate的
+     application(_:didRegisterForRemoteNotificationsWithDeviceToken:)，
+     application(_:didReceiveRemoteNotification:)
+•iOS 4 - LocalNotification
+     scheduleLocalNotification，
+     presentLocalNotificationNow， 
+     application(_:didReceive:)
+•iOS 5 - 加入通知中心页面
+•iOS 6 - 通知中心页面与 iCloud 同步
+•iOS 7 - 后台静默推送 
+     application(_:didReceiveRemoteNotification:fetchCompletionHandle:)
+•iOS 8 - 重新设计
+     notification权限请求，
+     Actionable通知
+     registerUserNotificationSettings(_:)，
+     UIUserNotificationAction与
+     UIUserNotificationCategory
+     application(_:handleActionWithIdentifier:forRemoteNotification:completionHandler:) 
+     能够接收的最大playload大小提升到2KB。低于iOS8的设备以及OS X设备维持256字节
+•iOS 8 - pushkit的框架和voip push，
+      通过这种push方式可以使app执行指定的代码, 跟apns push类似，pushkit的voippush也需要申请证书
+•iOS 9 - 
+     Text Input action，基于 HTTP/2 的推送请求 UIUserNotificationActionBehavior，全新的 Provider API 等
+     统一将最大 playload 大小提升到4KB
+•iOS 10-
+     UserNotifications.framework
+     由之前的alert到现在的title、subtitle、body，统一由trigger触发，通知不再是简单的文本了，可以加入附件，视频、音频，图片，自定义通知的展示等等
+     增加了撤销、更新、中途还可以修改通知的内容      本地与远程通知集成在一个申请权限方法中
+============================================================================================================= 
+iOS8以上，soma杀进程或suspended状态，收到VoIP push，VoIP push会唤醒suspended/被杀死状态not running的soma，然后去拉离线消息，生成local push，速度比较快;
+
+APNs使用情况：网络连接正常，soma进程被杀死状态not running，收到非VoIP push，走的是APNs，chats列表会出现loading的状态，因为从苹果服务器拉离线消息，所以速度会比较慢，这里的loading是和我们自己的服务器建立连接
+
+在前台时，没有push
+在后台还在运行，消息是通过APNS Push过来，之后会改成本地Push
+停止运行，消息是通过APNS Push
+ 
+先将local 及 push相关的比较有用的内容摘录下来，有时间整理
+苹果的apns在即时性和可靠性方面都是不做保证的，也就是说新消息的通知传到苹果那边，苹果不保证能成功帮你推送，也不保证即时推送，所以只能找一下看有没有第三方的免费推送服务提供商。
+针对iOS应用的状态，存在以下三种情况：
+1）若iOS应用为活动状态，刚与服务器保持一个长连接，客户端与服务器通过此连接收发消息。 2）若iOS应用为退出状态，长连接被断开，服务器向客户端发消息则通过APNS推送消息实现。 3）若iOS应用刚刚切至后台，还没有关闭，发现长连接并没有断开，服务器通过长连接向客户端发送消息还是能发出去，但是iOS应用只有重新切至前台时才能收到消息。
+ 
+针对第三种情况，有下面的疑问：
+iOS应用刚切至后台时，连接还保持着，此时客户端在后台是否可以收服务器来的消息，然后用本地通知来通知用户？如果可以的话应该怎么做？还是说一旦切至后台，就必须通过APNS来通知用户？
+ 
+结合苹果官方文档App Programming Guide里有关Background Execution and Multitasking的章节和satckoverflow对xmpp支持后台socket问题的解答，得出以下解决方法：
+1.因为苹果只支持少数几种类型的应用的代码可以在后台运行(例如:audio、location、voip等)，所以需要在应用的(appname)-info.plist文件里，增加一个"Required background modes"的key，值设置为voip，来指定类型。
+ 
+Push Notification、Local Notification、broadcast Notification这三种类型的Notification区别：
+1、broadcast Notification是app当前是在run状态，而且当前app是in foreground，即：是在前台运行，不是在后台运行。而且此notification是注册是本app里面的NSNotificationCenter，当app关闭后注册的notification也就不存在了。
+
+在iOS中如果点击一个弹出通知（或者锁屏界面滑动查看通知），默认会自动打开当前应用。由于通知由系统调度那么此时进入应用有两种情况？ 
+============================================================================================================= 
+推送原理
+
+iOS的推送的好处：
+1.安全。只有登录过的开发者可以通过苹果的服务器推送。
+2.快速，稳定，可靠。苹果掌控推送服务器和OS。
+3.更省电。
+4.让整个系统的体验更统一和简单。不会出现Apps被杀就收不到推送这种事
+5.开发容易。当然，开发者还是要做些事情，比如维护个服务器什么的，但是复杂度无疑降低了很多。
+此处推送原理及好处出处http://www.cocoachina.com/industry/20130106/5476.html
+
+Ios icon未读数字
+
+在程序前台运行的话，Coco可以设置
+进程被杀掉的话，通过coco server把未读数发给apple server, apple server在发送remote push的时候把未读数字带过来修改icon上的未读数字
+
+ios在锁屏下接收到voip请求
+
+ios 8: a在锁屏下接收到voip请求，下拉notify通知栏点击incoming call消息接听voip，挂断voip通话后仍有voip请求的来电声音持续播放，直至自动超时结束
+ios 7: a在锁屏下接收到voip请求，点击push消息或下拉notify通知栏点击incoming call消息接听voip，挂断voip通话后仍有voip请求的来电声音持续播放，直至自动超时结束
+ 为什么有时候收消息快的时候，push会合并在一起，提示"你收到xx条新xx通知"?
+
+当 APNs 向你发送了多条推送，但是你的设备网络状况不好，在 APNs 那里下线了，这时 APNs 到你的手机的链路上有多条任务堆积，APNs 的处理方式是，只保留最后一条消息推送给你，然后告知你推送数。那么其他三条消息呢？会被APNs丢弃
+APNs 从来不保证消息的达到率
+=============================================================================================================
+参考
+Troubleshooting Push Notifications
+    https://developer.apple.com/library/content/technotes/tn2265/_index.html
+Local and Remote Notification Programming Guide
+    https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG
+App Distribution Guide
+    https://developer.apple.com/library/content/documentation/IDEs/Conceptual/AppDistributionGuide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40012582
+https://support.apple.com/zh-cn/HT203609
+苹果framework官方文档：https://developer.apple.com/library/prerelease/ios/documentation/NetworkingInternet/Reference/PushKit_Framework/index.html#protocols
+Pushkit
+    https://developer.apple.com/library/prerelease/iOS/documentation/NetworkingInternet/Reference/PushKit_Framework/index.html#protocols
+    pushkit的wwdc的视频：712_sd_writing_energy_efficient_code_part_2。该视频也可以从苹果官网下载。
+wwdc2014 713 What's New in iOS Notifications
+    https://developer.apple.com/videos/play/wwdc2014/713/
+
+https://onevcat.com/2016/08/notification/
+Voice Over IP (VoIP) Best Practices https://developer.apple.com/library/prerelease/watchos/documentation/Performance/Conceptual/EnergyGuide-iOS/OptimizeVoIP.html
+ios8新特性:pushkit实战总结  http://blog.csdn.net/openglnewbee/article/details/44807191
+apns证书的申请流程参考：https://www.pushwoosh.com/programming-push-notification/ios/ios-configuration-guide/
