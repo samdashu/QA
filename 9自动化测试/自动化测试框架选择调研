@@ -1,0 +1,175 @@
+=如何降低自动化测试的维护成本======================
+1.开展自动化测试失败的最大可能性就是维护成本大于团队可以投入的时间，导致维护逐渐失控，最后成为角落里无人关注的垃圾代码，因此
+1.1最开始写的测试代码量要小，小到维护成本极低，团队每人每天的维护成本不超过20分钟
+1.2积累抽取公共函数库，减少新测试代码量的重复编写，增强测试代码的稳定性
+1.2.1抽取公共数据准备层
+1.2.2抽取公共元素库，元素的识别和测试代码进行分层
+1.2.3抽取元素操作流程-统一维护
+1.2.4优化测试工具 支持优化测试代码
+1.3.在降低维护成本后，继续扩充更多的测试代码，覆盖更多的产品功能
+=如何选择自动化测试框架===========================
+1.因为要降低维护成本，必然要二次开发，因此选择的测试框架要稳定方便的API开放：
+Appium的核心是一个遵守REST设计风格的web 服务器，提供的API based on Selenium's WebDriver JSON wire protocol，用HTTP的方式与客户端通讯。
+Client可以使用Appium client libraries多种语言（Java、Javascript、PHP、Python、C#、Ruby等）的测试脚本，Server端可以部署在服务器上，甚至云服务器
+在手机上执行命令，调用API，发送HTTP请求。
+
+2.最好是一套测试代码可以在多个平台使用
+Appium同时封装了UIAutomation和UiAutomator
+iOS部分是封装了UIAutomation
+Android 4.2以上是用UiAutomator， Android 2.3 ~ 4.1用的是 Instrumentation
+因此Appium拥有了以上几大框架的所有优点：跨App，支持Native App、Hybird App、Web App，还支持N种语言来编写你的测试脚本。
+
+3. Appium的可能隐患
+Appium的API based on Selenium's WebDriver JSON wire protocol，因为Selenium的执行速度在2014年的时候特别慢，有点担心速度问题；
+Appium GUIs是Objective-C and C#编写的，幸好已计划2017Q1进行重写
+Appium Server是Node.js写的
+=======================================================================================
+Android控件层面的，涉及Widgets和WebView两大类
+方式一：测试代码和被测应用各自运行在各自的进程内，相互独立；
+hierahcyview，Accessibilityservice ，UiAutomator 
+通过Android提供的各种服务，来获取当前窗口的视图信息，在当前视图内查找目标控件，并根据该控件属性信息计算出该控件中心点的坐标，进而构造出一个Android Input事件来实现对应用的自动化测试
+优点：可以跨应用。
+不足：速度慢、不支持WebView
+方式二：测试代码的APK和被测代码的APK运行在同一个进程中
+Robotium 基于Instrumentation
+
+=原理1: hierahcyview ============
+步骤一: 在当前视图内查找目标控件：
+通过socket与设备侧ViewServer建立连接，端口为4939。其次，通过命令“dump -1”获取控件属性信息。信息存入ViewNode中。第三，根据ViewNode信息，遍历控件树，查找到目标控件，
+步骤二 根据该控件属性bounds信息计算出该控件中心点的坐标
+步骤三 构造出一个Android Input事件
+步骤三 或者根据计算出的坐标信息，发送一个点击该点的monkey命令给设备侧的monkey服务，或者通过Monkey服务进行输入、硬按键类操作。
+ViewServer服务的开启都需要系统权限。故采用这种模式，手机一般需要root权限。
+
+=原理2: Accessibilityservice ============
+Accessibilityserveice是Android的一个服务，是一个为增强用户界面并帮助残疾用户的应用程序，或者用户可能无法完全与设备的交互。例如，用户在开车，那么用户就有可能需要添加额外的或者替代的用户反馈方式
+依据这个服务获取当前界面的控件属性信息，其获取内容跟Uiautomator一样，都是AccessibilityNodeInfo。
+控件信息获取到后，若是要进行点击等操作，则可通过Monkey或其他方式，如Input等，来模拟点击操作。
+
+=原理3: UiAutomator ============
+UiAutomator是Google仿照微软Uiautomation提供的一套自动化框架，基于Android AccessilibilityService提供
+3.1UiAutomatorView+monkey
+UiAutomatorView通过ADB向设备侧发送一个dump命令，而不是建立一个socket，下载一个包含当前界面控件布局信息的xml文件
+优点：比hierachyview下载的文件内容小很多，因此快很多
+
+3.2直接调用UiAutomator API，如UiDevice、UiSelector、UiObject等
+首先UiAutomator测试框架通过Accessibilityservice，获取当前窗口的控件层次关系及属性信息，并查找到目标控件。
+若是点击事件，则计算出该控件的中心点坐标。
+其次，UiAutomator通过测试框架，注入用户事件（点击、输入类操作），从而实现模拟人的操作。
+
+=原理4: Robotium ============
+基于Instrumentation，通过把测试代码和应用代码，确切地说是测试APK和被测APK，运行在同一个进程中,
+ 通过Java反射机制，来获取当前窗口所有视图，并根据该视图查找到目标控件的属性信息，
+并计算出目标控件中心点坐标。
+然后利用Instrument内部接口，实现点击操作。
+=其他自动化测试框架======================
+1.Sikuli
+2.Monkeyrunner
+3. Monkey
+4. Instrumentation
+5. Selendroid：
+6.Robotium
+7. Athrun
+8. UiAutomator
+9. Espresso
+10. Appium
+11. CTS
+Calabash-Android and iOS
+	▪	monkeytalk
+	▪	cafe
+	▪	Robolectric(单测)
+	▪	Android WebDriver： 
+	▪	bitbar
+	▪	Mockito(单测)
+	▪	RxJava(单测)
+	▪	Native Driver
+基于Android lib层的各种命令，比如sendevent,getevent, monkey, service这些，然后用各种语言封装
+=其他自动化测试框架简述=====================
+1.Sikuli (http://sikuli.org)
+基于优秀的图像对比库opencv的测试工具，测试脚本使用Python编写，非常强大。如果你的app没有源码，可以选择它；或者你想做系统测试（跨app的测试），也可以选择它
+通过其核心包sikuli-script.jar实现了android的sikuli化
+
+2.Monkeyrunner
+Google自己弄的。现在最新的dev版本已经有支持UI的id操作的EasyMonkey了。可以git clone git://http://android.kernel.org/platform/sdk.git
+Android SDK提供的测试工具。严格意义上来说MonkeyRunner其实是一个Api工具包，比Monkey强大，可以编写测试脚本来自定义数据、事件。缺点是脚本用Python来写
+
+3. Monkey
+Android SDK自带的测试工具，在测试过程中会向系统发送伪随机的用户事件流，如按键输入、触摸屏输入、手势输入等)，实现对正在开发的应用程序进行压力测试，也有日志输出。实际上该工具只能做程序做一些压力测试，由于测试事件和数据都是随机的，不能自定义，所以有很大的局限性。
+
+4. Instrumentation
+已经在Android SDK r14里面可以安装了
+早期Google提供的Android自动化测试工具类，
+虽然在那时候JUnit也可以对Android进行测试，但是Instrumentation允许你对应用程序做更为复杂的测试，甚至是框架层面的。
+通过Instrumentation你可以模拟按键按下、抬起、屏幕点击、滚动等事件。Instrumentation是通过将主程序和测试程序运行在同一个进程来实现这些功能，
+把Instrumentation看成一个类似Activity或者Service并且不带界面的组件，在程序运行期间监控你的主程序。
+缺点是对测试人员来说编写代码能力要求较高，需要对Android相关知识有一定了解，还需要配置AndroidManifest.xml文件，不能跨多个App。
+
+5. Selendroid：
+基于Instrumentation的测试框架，
+可以测试Native App、Hybird App、Web App，
+但是网上资料较少，社区活跃度也不大
+
+6.Robotium
+基于Instrumentation的测试框架，
+目前国内外用的比较多，资料比较多，社区也比较活跃。
+缺点是对测试人员来说要有一定的Java基础，了解Android基本组件，不能跨App。
+
+7. Athrun
+Android部分也是基于Instrumentation
+是淘宝出的一个移动测试框架/平台，同时支持iOS和Android。
+		Android上的自动化测试，包括自动化测试框架，持续集成体系。覆盖率工具和自动录制回放工具，也在试用完善中。
+		iOS上的自动化测试，包括注入式自动化框架AppFramework，和基于录制的非注入式自动化框架Athrun_IOS，InstrumentDriver，还有持续集成体系。目前这几个框架在淘宝内外部测试都有用户群，都还在不断使用和演进过程中。AppFramework已经支持socket通信方式。
+		AthrunStudio是基于PC2Mobile的移动工作平台，目前正在开发中。Demo代码开源，可以实现PC对手机的远程控制。
+		http://code.taobao.org/p/athrun/wiki/index/
+		Athrun的Android部分基于Instrumentation开发，在Android原有的ActivityInstrumentationTestCase2类基础上进行了扩展，提供一整套面向对象的API。
+		在有源代码的情况下可以很方便对应用进行UI功能性测试。
+		Athrun原名TMTS，是淘宝的无线测试框架/平台。
+		http://code.taobao.org/p/TMTS/wiki/index/
+8. CTS
+基于Android instrumentation测试，其又基于JUnit测试。说白了，CTS就是一堆单元测试用例。这也是Java语言的擅长部分
+CTS原来只对OHA联盟开放。最近Google把它Release出来了
+针对每个版本，比如 2.1,2.2,Goolge发布了一个兼容性规范，而CTS测试就是用来确保某手机或者模拟器符合该兼容性规范
+CTS跟WM的LTK测试还是弱了一些，毕竟还年轻。它只包括自动化测试，目的主要是保证API的兼容性。由于基于单元测试，CTS 本身不能用于测试多应用交互的情况
+
+8. UiAutomator
+Android提供的自动化测试框架，
+基本上支持所有的Android事件操作，
+对比Instrumentation它不需要测试人员了解代码实现细节（可以用UiAutomatorviewer抓去App页面上的控件属性而不看源码）。
+基于Java，测试代码结构简单、编写容易、学习成本，一次编译，所有设备或模拟器都能运行测试，能跨App（比如：很多App有选择相册、打开相机拍照，这就是跨App测试）。
+缺点是只支持SDK 16（Android 4.1）及以上，不支持Hybird App、WebApp。
+UiAutomator Testcase类继承自JUnit的TestCase类。
+而Robotium、Espresso则继承自activityInstrumentationTestCase2
+
+9. Espresso
+Google的开源自动化测试框架。
+相对于Robotium和UIAutomator，它的特点是规模更小、更简洁，API更加精确，编写测试代码简单，容易快速上手。
+参考https://medium.com/@marta/ui-tests-with-espresso-android-studio-c476d3b5ba45
+使测试人员可以在云中x86机器的多线程环境里运行测试，并解决了关于UI测试的并发问题
+模拟器的问题是执行速度，其中，在模拟的ARM CPU上运行Android是一个瓶颈。为了解决这个问题，Google已经创建了可以直接在x86硬件上运行的Android版本，并使用了VM加速。另一个瓶颈是Android的启动时间。该问题已经通过抓取OS快照并执行快照得以解决。该方法可以在很短的时间内提供期望的OS和应用程序配置。
+
+11. Appium是最近比较热门的框架，社区也很活跃。这个框架应该是是功能最强大的
+
+12.ASE
+ASE 意思为Android脚本环境，即我们可以通过脚本（比如 Python）调用Android的功能，从而定制一些测试。比如打电话，发短信，浏览网页，等
+
+13.Calabash-Android and iOS
+ruby
+Espresso提供了原生的异步测试支持，通过实现IdlingResource接口，复写getName()、isIdleNow()、registerIdleTranstionCallback()方法
+
+14.Android Test Kit
+Android Test Kit 是一组 Google 开源测试工具，用于 Android 平台，包含 Espresso API 可用于编写简洁可靠的 Android UI 测试。
+
+OSChina URL: Android Test Kit首页、文档和下载
+Mona El Mahdy推荐使用 Robolectric和Android Studio Gradle插件做常规的单元测试，用Espresso 或 UI Automator 创建和运行单元测试
+基于web的测试也有基于Selenium Webdriver 的 Android WebDriver： 
+基于Remote Server的, 官方提供了java接口的，但是Python版的官方里面却没有。我非常喜欢Python，所以自己实现了并且开源到了GitHub, https://github.com/truebit/Andr, 
+基于Android Java Instrumentation框架
+基于Robotium，比如bitbar的产品:http://bitbar.com/product
+基于Android lib层的各种命令，比如sendevent,getevent, monkey, service这些，然后用各种语言封装
+来源：https://www.zhihu.com/question/19716849
+=参考========================================
+Hierachyview实现原理:http://www.cnblogs.com/vowei/archive/2012/08/08/2627614.html
+Instumentation：http://blog.sina.com.cn/s/blog_44d19b500102v75z.html
+Appium站点 http://appium.io
+Appium GitHub: https://github.com/appium/appium
+Appium安装 http://www.cnblogs.com/fnng/p/4540731.html
